@@ -524,6 +524,19 @@ sub post_stuff($$$$$$$$$$$$$$)
 	$email=clean_string(decode_string($email,CHARSET));
 	$subject=clean_string(decode_string($subject,CHARSET));
 
+	# check subject field for 'noko' (legacy)
+	my $noko = 0;
+	if ($subject =~ m/^noko$/i)
+	{
+		$subject = '';
+		$noko = 1;
+	}
+	# and the link field (proper)
+	elsif ($email =~ m/^noko$/i)
+	{
+		$noko = 1;
+	}
+
 	# fix up the email/link
 	$email="mailto:$email" if $email and $email!~/^$protocol_re:/;
 
@@ -592,6 +605,7 @@ sub post_stuff($$$$$$$$$$$$$$)
 		if($num)
 		{
 			build_thread_cache($num);
+			$parent = $num; # For use with "noko" below
 		}
 	}
 
@@ -600,7 +614,12 @@ sub post_stuff($$$$$$$$$$$$$$)
 	-charset=>CHARSET,-autopath=>COOKIE_PATH); # yum!
 
 	# forward back to the main page
-	make_http_forward(HTML_SELF,ALTERNATE_REDIRECT);
+	make_http_forward(HTML_SELF,ALTERNATE_REDIRECT) unless $noko;
+
+	# ...unless we have "noko" (a la 4chan)--then forward to thread
+	# ($parent contains current post number if a new thread was posted)
+	make_http_forward(RES_DIR.$parent.PAGE_EXT,ALTERNATE_REDIRECT);
+
 }
 
 sub is_whitelisted($)
