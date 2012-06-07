@@ -92,6 +92,40 @@ form .trap { display:none }
 <body>
 };
 
+use constant MINI_HEAD_REFRESH_INCLUDE => q{
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">}."\n\n".q{
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+<title><if $title><var $title> - </if><const TITLE></title>
+<meta http-equiv="Content-Type" content="text/html;charset=<const CHARSET>" />
+<link rel="shortcut icon" href="<var expand_filename($board-\>option('FAVICON'))>" />
+
+<style type="text/css">
+body { margin: 0; padding: 8px; margin-bottom: auto; }
+blockquote blockquote { margin-left: 0em }
+form { margin-bottom: 0px }
+form .trap { display:none }
+.postarea { text-align: center }
+.postarea table { margin: 0px auto; text-align: left }
+.thumb { border: none; float: left; margin: 2px 20px }
+.nothumb { float: left; background: #eee; border: 2px dashed #aaa; text-align: center; margin: 2px 20px; padding: 1em 0.5em 1em 0.5em; }
+.reply blockquote, blockquote :last-child { margin-bottom: 0em }
+.reflink a { color: inherit; text-decoration: none }
+.reply .filesize { margin-left: 20px }
+.userdelete { float: right; text-align: center; white-space: nowrap }
+.replypage .replylink { display: none }
+</style>
+
+<loop $stylesheets>
+<link rel="<if !$default>alternate </if>stylesheet" type="text/css" href="<var $filename>" title="<var $title>" />
+</loop>
+
+<script type="text/javascript">var style_cookie="<var $board-\>option('STYLE_COOKIE')>";</script>
+<script type="text/javascript" src="<var expand_filename($board-\>option('JS_FILE'))>"></script>
+</head>
+<body onload="window.opener.location.reload()">
+};
+
 use constant MINI_FOOT_INCLUDE => q{
 </body></html>
 };
@@ -183,11 +217,11 @@ use constant PAGE_TEMPLATE => compile_template(NORMAL_HEAD_INCLUDE.q{
 			<if !$thread><a href="<var get_reply_link($num,0)>#i<var $num>">No.<var $num></a></if>
 			<if $thread><a href="javascript:insert('&gt;&gt;<var $num>')">No.<var $num></a></if>
 			</span>&nbsp;
-			<span class="deletelink">
-				[<a href="<var $self>?task=delpostwindow&amp;num=<var $num>" target="newWindow" onclick="passfield('<var $num>', 'delete', '<var $self>', null); return false">Delete</a>]
-				<form action="<var $self>" method="post" id="deletepostform<var $num>" style="display:inline"><span id="delpostcontent<var $num>" style="display:inline" name="deletepostspan"></span></form>
+			<span class="deletelink" id="deletelink<var $num>">
+				[<a href="<var $self>?task=delpostwindow&amp;num=<var $num>" target="_blank" onclick="passfield('<var $num>', 'delete', '<var $self>', null); return false">Delete</a>]
+				<span id="delpostcontent<var $num>" style="display:inline"></span>
 			</span>&nbsp;
-			[<a href="<var $self>?task=edit&amp;num=<var $num>" target="newWindow" onclick="popUpPost('<var $self>?task=edit&amp;num=<var $num>'); return false">Edit</a>]&nbsp;
+			[<a href="<var $self>?task=edit&amp;num=<var $num>" target="_blank" onclick="popUpPost('<var $self>?task=edit&amp;num=<var $num>'); return false">Edit</a>]&nbsp;
 			<if !$thread>[<a href="<var get_reply_link($num,0)>"><const S_REPLY></a>]</if>
 
 			<blockquote>
@@ -365,6 +399,13 @@ use constant ERROR_TEMPLATE => compile_template(NORMAL_HEAD_INCLUDE.q{
 
 }.NORMAL_FOOT_INCLUDE);
 
+use constant ERROR_TEMPLATE_MINI => compile_template(MINI_HEAD_INCLUDE.q{
+
+<h1 style="text-align:center"><var $error><br /><br />
+<a href="<var escamp($ENV{HTTP_REFERER})>"><const S_RETURN></a><br /><br />
+</h1>
+
+}.MINI_FOOT_INCLUDE);
 
 
 #
@@ -490,7 +531,9 @@ use constant POST_PANEL_TEMPLATE => compile_template(MANAGER_HEAD_INCLUDE.q{
 }.NORMAL_FOOT_INCLUDE);
 
 
-
+use constant EDIT_SUCCESSFUL => compile_template(MINI_HEAD_REFRESH_INCLUDE.q{
+	<p style="font-size: 1em; text-align: center; font-weight: bold">Update Successful!</p>
+}.MINI_FOOT_INCLUDE);
 
 use constant BAN_PANEL_TEMPLATE => compile_template(MANAGER_HEAD_INCLUDE.q{
 

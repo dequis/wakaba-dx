@@ -218,7 +218,7 @@ elsif($task eq "editpostwindow") # ADDED for the post editing interface
 elsif($task eq "delpostwindow")
 {
 	my $num = $query->param("num");
-	password_window($num, '', "delete");
+	password_window($num, "delete");
 }
 elsif($task eq "editpost") # ADDED for the post updating process when editing
 {
@@ -240,7 +240,7 @@ elsif($task eq "editpost") # ADDED for the post updating process when editing
 elsif($task eq "edit") # ADDED for displaying the password prompts when editing
 {
 	my $num = $query->param("num");
-	password_window($num, '', "edit");
+	password_window($num, "edit");
 }
 
 
@@ -728,9 +728,9 @@ sub tag_killa($) # ADDED - subroutine for stripping HTML tags and supplanting th
 }
 
 
-sub password_window($$$)
+sub password_window($$)
 {
-	my ($num,'',$type) = @_;
+	my ($num,$type) = @_;
 	make_http_header();
 	if ($type eq "edit")
 	{
