@@ -9,6 +9,29 @@ function get_cookie(name)
 	}
 };
 
+function passfield(num, type, script, page) // Bring up Password Field for [Edit] and [Delete] Links
+{
+	if (document.getElementById('delpostcontent'+num).innerHTML == "")
+	{
+		// Collapse other fields
+		var others=document.getElementsByName("deletepostspan");
+		for(var i=0; i<others.length; i++)
+		{
+			if(others[i].id != "delpostcontent"+num && others[i].innerHTML != "")
+			{
+				others[i].innerHTML="";
+			}
+		}
+
+		document.getElementById('delpostcontent'+num).innerHTML = '[<label><input type="checkbox" name="fileonly" value="on" /> File Only?] <input type="password" name="password" id="password' + num + '" size="8" autocomplete="off" /> <input value="OK" type="submit" /><input type="hidden" name="task" value="delete" /><input type="hidden" name="delete" value="' + num + '" autocomplete="off"/>';
+		document.getElementById('password'+num).value = get_password("password");
+	}
+	else
+	{
+		document.getElementById('delpostcontent'+num).innerHTML = "";
+	}
+}
+
 function set_cookie(name,value,days)
 {
 	if(days)
@@ -174,4 +197,15 @@ if(style_cookie)
 	var cookie=get_cookie(style_cookie);
 	var title=cookie?cookie:get_preferred_stylesheet();
 	set_stylesheet(title);
+}
+
+function popUp(URL) {
+	day = new Date();
+	id = day.getTime();
+	eval("page" + id + " = window.open(URL, '" + id + "', 'toolbar=0,scrollbars=1,location=0,statusbar=0,menubar=0,resizable=1,width=450,height=300');");
+}
+function popUpPost(URL) {
+	day = new Date();
+	id = day.getTime();
+	eval("page" + id + " = window.open(URL, '" + id + "', 'toolbar=0,scrollbars=1,location=0,statusbar=0,menubar=0,resizable=1,width=600,height=350');");
 }

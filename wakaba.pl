@@ -90,10 +90,11 @@ elsif($task eq "delete")
 	my $password=$query->param("password");
 	my $fileonly=$query->param("fileonly");
 	my $archive=$query->param("archive");
+	my $fromwindow = $query->param("fromwindow"); # Is it from a window/widget?
 	my $admin=$query->param("admin");
 	my @posts=$query->param("delete");
 
-	delete_stuff($password,$fileonly,$archive,$admin,@posts);
+	delete_stuff($password,$fileonly,$archive,$admin,$fromwindow,@posts);
 }
 elsif($task eq "admin")
 {
@@ -207,6 +208,41 @@ elsif($task eq "nuke")
 	my $admin=$query->param("admin");
 	do_nuke_database($admin);
 }
+elsif($task eq "editpostwindow") # ADDED for the post editing interface
+{
+	my $num = $query->param("num");
+	my $password = $query->param("password");
+	my $admin = $query->param("admin");
+	edit_window($num, $password, $admin);
+}
+elsif($task eq "delpostwindow")
+{
+	my $num = $query->param("num");
+	password_window($num, '', "delete");
+}
+elsif($task eq "editpost") # ADDED for the post updating process when editing
+{
+	my $num = $query->param("num");
+	my $name = $query->param("field1");
+	my $email = $query->param("email");
+	my $subject=$query->param("subject");
+	my $comment=$query->param("comment");
+	my $file=$query->param("file");
+	my $captcha=$query->param("captcha");
+	my $admin=$query->param("admin");
+	my $no_captcha=$query->param("no_captcha");
+	my $no_format=$query->param("no_format");
+	my $postfix=$query->param("postfix");
+	my $password = $query->param("password");
+	my $killtrip = $query->param("killtrip");
+	edit_shit($num,$name,$email,$subject,$comment,$file,$file,$password,$captcha,$admin,$no_captcha,$no_format,$postfix,$killtrip);
+}
+elsif($task eq "edit") # ADDED for displaying the password prompts when editing
+{
+	my $num = $query->param("num");
+	password_window($num, '', "edit");
+}
+
 
 $dbh->disconnect();
 
@@ -622,6 +658,257 @@ sub post_stuff($$$$$$$$$$$$$$)
 
 }
 
+# Post Editing
+
+sub edit_window($$$) # ADDED subroutine for creating the post-edit window
+{
+	my ($num, $password, $admin)=@_;
+	my @loop;
+	my $sth=$dbh->prepare("SELECT * FROM ".SQL_TABLE." WHERE num=?;");
+	$sth->execute($num);
+	check_password_editing_mode($admin, ADMIN_PASS) if $admin;
+	while (my $row = get_decoded_hashref($sth))
+	{
+		make_error_small(S_NOPASS) if ($$row{password} eq '' && !$admin);
+		make_error_small(S_BADEDITPASS) if ($$row{password} ne $password && !$admin);
+		push @loop, $row;
+	}
+	make_http_header();
+	print encode_string(POST_EDIT_TEMPLATE->(admin=>$admin, password=>$password, loop=>\@loop));
+	$sth->finish();
+}
+
+sub tag_killa($) # ADDED - subroutine for stripping HTML tags and supplanting them with corresponding wakabamark
+{
+	my $tag_killa = $_[0];
+	$tag_killa =~ s/<br\s?\/?>/\n/g;
+	$tag_killa =~ s/<\/p>$//;
+	$tag_killa =~ s/<\/p>/\n\n/g;
+	$tag_killa =~ s/<code>([^\n]*?)<\/code>/\`$1\`/g;
+	while($tag_killa =~ m/<\s*?code>(.*?)<\/\s*?code>/s)
+	{
+		my $replace = $1;
+		my @strings = split (/\n/, $replace);
+		for (my $i = 0; $i <= $#strings; $i++)
+		{
+			$strings[$i] = '    '.$strings[$i];
+		}
+		my $replace2 = join ("\n", @strings);
+		$tag_killa =~ s/<\s*?code>$replace<\/\s*?code>/$replace2\n\n/s;
+	}
+	while ($tag_killa =~ m/<ul>(.*?)<\/ul>/)
+	{
+		my $replace = $1;
+		my $replace2 = $replace;
+		my @strings = split (/<\/li>/, $replace2);
+		for (my $i = 0; $i <= $#strings; $i++)
+		{
+			$strings[$i] =~ s/<li>/\* /;
+		}
+		$replace2 = join ("\n", @strings);
+		$tag_killa =~ s/<ul>$replace<\/ul>/$replace2\n\n/gs;
+	}
+	while ($tag_killa =~ m/<ol>(.*?)<\/ol>/)
+	{
+		my $replace = $1;
+		my $replace2 = $replace;
+		my @strings = split (/<\/li>/, $replace2);
+		for (my $i = 0; $i <= $#strings; $i++)
+		{
+			my $count = $i + 1;
+			$strings[$i] =~ s/<li>/$count\. /;
+		}
+		$replace2 = join ("\n", @strings);
+		$tag_killa =~ s/<ol>$replace<\/ol>/$replace2\n\n/gs;
+	}
+	$tag_killa =~ s/<\/?em>/\*/g;
+	$tag_killa =~ s/<\/?strong>/\*\*/g;
+	$tag_killa =~ s/<.*?>//g;
+	$tag_killa;
+}
+
+
+sub password_window($$$)
+{
+	my ($num,'',$type) = @_;
+	make_http_header();
+	if ($type eq "edit")
+	{
+		print encode_string(PASSWORD->(num=>$num));
+	}
+	else # Deleting
+	{
+		print encode_string(DELPASSWORD->(num=>$num));
+	}
+}
+
+
+sub edit_shit($$$$$$$$$$$$$$) # ADDED subroutine for post editing
+{
+	my ($num,$name,$email,$subject,$comment,$file,$uploadname,$password,$captcha,$admin,$no_captcha,$no_format,$postfix,$killtrip)=@_;
+	# get a timestamp for future use
+	my $time=time();
+
+	# Grab original information from the target post
+	my $select=$dbh->prepare("SELECT * FROM ".SQL_TABLE." WHERE num = ?;");
+	$select->execute($num);
+
+	my $row = get_decoded_hashref($select);
+
+	# check that the request came in as a POST, or from the command line
+	make_error(S_UNJUST) if($ENV{REQUEST_METHOD} and $ENV{REQUEST_METHOD} ne "POST");
+
+	if($admin) # check admin password - allow both encrypted and non-encrypted
+	{
+		check_password_editing_mode($admin,ADMIN_PASS);
+	}
+	else
+	{
+		# forbid admin-only features
+		make_error_small(S_WRONGPASS) if($no_captcha or $no_format or $postfix);
+
+		# No password = No editing. (Otherwise, chaos could ensue....)
+		make_error_small(S_NOPASS) if ($$row{password} eq '');
+
+		# Check password.
+		make_error_small(S_BADEDITPASS) if ($$row{password} ne $password);
+
+		# check what kind of posting is allowed
+		if($$row{parent})
+		{
+			make_error_small(S_NOTALLOWED) if($file and !ALLOW_IMAGE_REPLIES);
+		}
+		else
+		{
+			make_error_small(S_NOTALLOWED) if($file and !ALLOW_IMAGES);
+		}
+	}
+
+	# check for weird characters
+	make_error_small(S_UNUSUAL) if($name=~/[\n\r]/);
+	make_error_small(S_UNUSUAL) if($email=~/[\n\r]/);
+	make_error_small(S_UNUSUAL) if($subject=~/[\n\r]/);
+
+	# check for excessive amounts of text
+	make_error_small(S_TOOLONG) if(length($name)>MAX_FIELD_LENGTH);
+	make_error_small(S_TOOLONG) if(length($email)>MAX_FIELD_LENGTH);
+	make_error_small(S_TOOLONG) if(length($subject)>MAX_FIELD_LENGTH);
+	make_error_small(S_TOOLONG) if(length($comment)>MAX_COMMENT_LENGTH);
+
+	# check for empty reply or empty text-only post
+	make_error_small(S_NOTEXT) if($comment=~/^\s*$/ and !$file and !$$row{filename});
+
+	# get file size, and check for limitations.
+	my $size=get_file_size($file) if($file);
+
+	# find IP
+	my $ip=$ENV{REMOTE_ADDR};
+
+	#$host = gethostbyaddr($ip);
+	my $numip=dot_to_dec($ip);
+
+	# set up cookies
+	my $c_name=$name;
+	my $c_email=$email;
+	my $c_password=$password;
+
+	# check if IP is whitelisted
+	my $whitelisted=is_whitelisted($numip);
+
+	# process the tripcode - maybe the string should be decoded later
+	my $trip;
+	($name,$trip)=process_tripcode($name,TRIPKEY,SECRET,CHARSET);
+	$trip = '' if $killtrip;
+
+	# check for bans
+	ban_check($numip,$c_name,$subject,$comment) unless $whitelisted;
+
+	# spam check
+	spam_engine(
+		query=>$query,
+		trap_fields=>SPAM_TRAP?["name","link"]:[],
+		spam_files=>[SPAM_FILES],
+		charset=>CHARSET,
+	) unless $whitelisted;
+
+	# check captcha
+	check_captcha($dbh,$captcha,$ip,$$row{parent}) if(ENABLE_CAPTCHA and !$no_captcha and !is_trusted($trip));
+
+	# proxy check
+	proxy_check($ip) if (!$whitelisted and ENABLE_PROXY_CHECK);
+
+	# kill the name if anonymous posting is being enforced
+	if(FORCED_ANON)
+	{
+		$name='';
+		$trip='';
+		if($email=~/sage/i) { $email='sage'; }
+		else { $email=''; }
+	}
+
+	# clean up the inputs
+	$email=clean_string(decode_string($email,CHARSET));
+	$subject=clean_string(decode_string($subject,CHARSET));
+
+	# fix up the email/link
+	$email="mailto:$email" if $email and $email!~/^$protocol_re:/;
+
+	# format comment
+	$comment=format_comment(clean_string(decode_string($comment,CHARSET))) unless $no_format;
+	$comment.=$postfix;
+
+	# insert default values for empty fields
+	$name=make_anonymous($ip,$time) unless $name or $trip;
+	$subject=S_ANOTITLE unless $subject;
+	$comment=S_ANOTEXT unless $comment;
+
+	# flood protection - must happen after inputs have been cleaned up
+	flood_check($numip,$time,$comment,$file,1);
+
+	# generate date
+	my $date=make_date($time+11*3600,DATE_STYLE);
+
+	# generate ID code if enabled
+	$date.=' ID:'.make_id_code($ip,$time,$email) if(DISPLAY_ID);
+
+	# copy file, do checksums, make thumbnail, etc
+	if($file)
+	{
+		 my ($filename,$md5,$width,$height,$thumbnail,$tn_width,$tn_height)=process_file($file,$uploadname,$time,$$row{parent});
+		 my $filesth=$dbh->prepare("UPDATE ".SQL_TABLE." SET image=?, md5=?, width=?, height=?, thumbnail=?,tn_width=?,tn_height=? WHERE num=?")
+			or make_error_small(S_SQLFAIL);
+		 $filesth->execute($filename,$md5,$width,$height,$thumbnail,$tn_width,$tn_height, $num) or make_error(S_SQLFAIL);
+		 # now delete original files
+		 if ($$row{image} ne '') { unlink $$row{image}; }
+		 my $thumb=THUMB_DIR;
+		 if ($$row{thumbnail} =~ /^$thumb/) { unlink $$row{thumbnail}; }
+	}
+
+	# close old dbh handle
+	$select->finish();
+
+	# finally, write to the database
+	my $sth=$dbh->prepare("UPDATE ".SQL_TABLE." SET name=?,trip=?,subject=?,email=?,comment=? WHERE num=?;") or make_error_small(S_SQLFAIL);
+	$sth->execute($name,($trip || $killtrip) ? $trip : $$row{trip},$subject,$email,$comment,$num) or make_error_small(S_SQLFAIL);
+
+	# remove old threads from the database
+	trim_database();
+
+	# update the cached HTML pages
+	build_cache();
+
+	# update the individual thread cache
+	if($$row{parent}) { build_thread_cache($$row{parent}); }
+	else # rebuild cache for edited OP
+	{
+		build_thread_cache($num);
+	}
+
+	# redirect to confirmation page
+	make_http_header();
+	print encode_string(EDIT_SUCCESSFUL->());
+}
+
 sub is_whitelisted($)
 {
 	my ($numip)=@_;
@@ -680,9 +967,9 @@ sub ban_check($$$$)
 	return(0);
 }
 
-sub flood_check($$$$)
+sub flood_check($$$$$)
 {
-	my ($ip,$time,$comment,$file)=@_;
+	my ($ip,$time,$comment,$file,$repeat_ok)=@_;
 	my ($sth,$maxtime);
 
 	if($file)
@@ -702,10 +989,13 @@ sub flood_check($$$$)
 		make_error(S_RENZOKU) if(($sth->fetchrow_array())[0]);
 
 		# check for repeated messages
-		$maxtime=$time-(RENZOKU3);
-		$sth=$dbh->prepare("SELECT count(*) FROM ".SQL_TABLE." WHERE ip=? AND comment=? AND timestamp>$maxtime;") or make_error(S_SQLFAIL);
-		$sth->execute($ip,$comment) or make_error(S_SQLFAIL);
-		make_error(S_RENZOKU3) if(($sth->fetchrow_array())[0]);
+		if ($repeat_ok) # If the post is being edited, the comment field does not have to change.
+		{
+			$maxtime=$time-(RENZOKU3);
+			$sth=$dbh->prepare("SELECT count(*) FROM ".SQL_TABLE." WHERE ip=? AND comment=? AND timestamp>$maxtime;") or make_error(S_SQLFAIL);
+			$sth->execute($ip,$comment) or make_error(S_SQLFAIL);
+			make_error(S_RENZOKU3) if(($sth->fetchrow_array())[0]);
+		}
 	}
 }
 
@@ -859,7 +1149,7 @@ sub simple_format($@)
 		$line=~s{(https?://[^\s<>"]*?)((?:\s|<|>|"|\.|\)|\]|!|\?|,|&#44;|&quot;)*(?:[\s<>"]|$))}{\<a href="$1"\>$1\</a\>$2}sgi;
 
 		# colour quoted sections if working in old-style mode.
-		$line=~s!^(&gt;.*)$!\<span class="unkfunc"\>$1\</span\>!g unless(ENABLE_WAKABAMARK);
+		$line=~s!^(&gt;[^_]*)$!\<span class="unkfunc"\>$1\</span\>!g unless(ENABLE_WAKABAMARK);
 
 		$line=$handler->($line) if($handler);
 
@@ -1120,9 +1410,9 @@ sub process_file($$$)
 # Deleting
 #
 
-sub delete_stuff($$$$@)
+sub delete_stuff($$$$$@)
 {
-	my ($password,$fileonly,$archive,$admin,@posts)=@_;
+	my ($password,$fileonly,$archive,$admin,$fromwindow,@posts)=@_;
 	my ($post);
 
 	check_password($admin,ADMIN_PASS) if($admin);
@@ -1141,6 +1431,8 @@ sub delete_stuff($$$$@)
 
 	if($admin)
 	{ make_http_forward(get_script_name()."?admin=$admin&task=mpanel",ALTERNATE_REDIRECT); }
+	elsif ($fromwindow)
+	{ make_http_header(); print encode_string(EDIT_SUCCESSFUL->());  }
 	else
 	{ make_http_forward(HTML_SELF,ALTERNATE_REDIRECT); }
 }
@@ -1542,6 +1834,16 @@ sub check_password($$)
 	make_error(S_WRONGPASS);
 }
 
+sub check_password_editing_mode($$)
+{
+	my ($admin,$password)=@_;
+
+	return if($admin eq ADMIN_PASS);
+	return if($admin eq crypt_password($password));
+
+	make_error_small(S_WRONGPASS);
+}
+
 sub crypt_password($)
 {
 	my $crypt=hide_data((shift).$ENV{REMOTE_ADDR},9,"admin",SECRET,1);
@@ -1588,6 +1890,35 @@ sub make_error($)
 
 	exit;
 }
+
+sub make_error_small($)
+{
+	my ($error)=@_;
+
+	make_http_header();
+
+	print encode_string(ERROR_TEMPLATE_MINI->(error=>$error));
+
+	if($dbh)
+	{
+		$dbh->{Warn}=0;
+		$dbh->disconnect();
+	}
+
+	if(ERRORLOG) # could print even more data, really.
+	{
+		open ERRORFILE,'>>'.ERRORLOG;
+		print ERRORFILE $error."\n";
+		print ERRORFILE $ENV{HTTP_USER_AGENT}."\n";
+		print ERRORFILE "**\n";
+		close ERRORFILE;
+	}
+
+	# delete temp files
+
+	exit;
+}
+
 
 sub get_script_name()
 {

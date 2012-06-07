@@ -58,6 +58,44 @@ form .trap { display:none }
 </div><hr />
 };
 
+use constant MINI_HEAD_INCLUDE => q{
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">}."\n\n".q{
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+<title><if $title><var $title> - </if><const TITLE></title>
+<meta http-equiv="Content-Type" content="text/html;charset=<const CHARSET>" />
+<link rel="shortcut icon" href="<var expand_filename(FAVICON)>" />
+
+<style type="text/css">
+body { margin: 0; padding: 8px; margin-bottom: auto; }
+blockquote blockquote { margin-left: 0em }
+form { margin-bottom: 0px }
+form .trap { display:none }
+.postarea { text-align: center }
+.postarea table { margin: 0px auto; text-align: left }
+.thumb { border: none; float: left; margin: 2px 20px }
+.nothumb { float: left; background: #eee; border: 2px dashed #aaa; text-align: center; margin: 2px 20px; padding: 1em 0.5em 1em 0.5em; }
+.reply blockquote, blockquote :last-child { margin-bottom: 0em }
+.reflink a { color: inherit; text-decoration: none }
+.reply .filesize { margin-left: 20px }
+.userdelete { float: right; text-align: center; white-space: nowrap }
+.replypage .replylink { display: none }
+</style>
+
+<loop $stylesheets>
+<link rel="<if !$default>alternate </if>stylesheet" type="text/css" href="<var $path><var $filename>" title="<var $title>" />
+</loop>
+
+<script type="text/javascript">var style_cookie="<const STYLE_COOKIE>";</script>
+<script type="text/javascript" src="<var expand_filename(JS_FILE)>"></script>
+</head>
+<body>
+};
+
+use constant MINI_FOOT_INCLUDE => q{
+</body></html>
+};
+
 use constant NORMAL_FOOT_INCLUDE => include("include/footer.html").q{
 
 </body></html>
@@ -145,6 +183,11 @@ use constant PAGE_TEMPLATE => compile_template(NORMAL_HEAD_INCLUDE.q{
 			<if !$thread><a href="<var get_reply_link($num,0)>#i<var $num>">No.<var $num></a></if>
 			<if $thread><a href="javascript:insert('&gt;&gt;<var $num>')">No.<var $num></a></if>
 			</span>&nbsp;
+			<span class="deletelink">
+				[<a href="<var $self>?task=delpostwindow&amp;num=<var $num>" target="newWindow" onclick="passfield('<var $num>', 'delete', '<var $self>', null); return false">Delete</a>]
+				<form action="<var $self>" method="post" id="deletepostform<var $num>" style="display:inline"><span id="delpostcontent<var $num>" style="display:inline" name="deletepostspan"></span></form>
+			</span>&nbsp;
+			[<a href="<var $self>?task=edit&amp;num=<var $num>" target="newWindow" onclick="popUpPost('<var $self>?task=edit&amp;num=<var $num>'); return false">Edit</a>]&nbsp;
 			<if !$thread>[<a href="<var get_reply_link($num,0)>"><const S_REPLY></a>]</if>
 
 			<blockquote>
@@ -173,6 +216,11 @@ use constant PAGE_TEMPLATE => compile_template(NORMAL_HEAD_INCLUDE.q{
 			<if !$thread><a href="<var get_reply_link($parent,0)>#i<var $num>">No.<var $num></a></if>
 			<if $thread><a href="javascript:insert('&gt;&gt;<var $num>')">No.<var $num></a></if>
 			</span>&nbsp;
+			<span class="deletelink">
+				[<a href="<var $self>?task=delpostwindow&amp;num=<var $num>" target="newWindow" onclick="passfield('<var $num>', 'delete', '<var $self>', null); return false">Delete</a>]
+				<form action="<var $self>" method="post" id="deletepostform<var $num>" style="display:inline"><span id="delpostcontent<var $num>" style="display:inline" name="deletepostspan"></span></form>
+			</span>&nbsp;
+			[<a href="<var $self>?task=edit&amp;num=<var $num>" target="newWindow" onclick="popUpPost('<var $self>?task=edit&amp;num=<var $num>'); return false">Edit</a>]
 
 			<if $image>
 				<br />
@@ -237,6 +285,76 @@ use constant PAGE_TEMPLATE => compile_template(NORMAL_HEAD_INCLUDE.q{
 
 }.NORMAL_FOOT_INCLUDE);
 
+
+use constant PASSWORD => compile_template (MINI_HEAD_INCLUDE. q{
+	<h1 style="text-align:center;font-size:1em">Now Editing Post No.<var $num></h1>
+	<form action="<var $self>" method="post" id="delform">
+	<input type="hidden" name="task" value="editpostwindow" />
+	<input type="hidden" name="num" value="<var $num>" />
+	<p style="text-align:center"><const S_PROMPTPASSWORD><input type="password" name="password" size="8" autocomplete="off" />
+	<input value="Edit" type="submit" /></p>
+	<script type="text/javascript">set_delpass("delform")</script>
+	</form>
+}.MINI_FOOT_INCLUDE);
+
+use constant DELPASSWORD => compile_template (MINI_HEAD_INCLUDE. q{
+	<h1 style="text-align:center;font-size:1em">Deleting Post No.<var $num></h1>
+	<form action="<var $self>" method="post" id="delform">
+	<input type="hidden" name="task" value="delete" />
+	<input type="hidden" name="delete" value="<var $num>" />
+	<input type="hidden" name="fromwindow" value="1" />
+	<p style="text-align:center">
+		<const S_PROMPTPASSWORD><input type="password" name="password" size="8"/>
+		<br />
+		[<label><input type="checkbox" name="fileonly" value="on" /><const S_DELPICONLY></label>]
+		<input value="Delete" type="submit" />
+	</p>
+	<script type="text/javascript">set_delpass("delform")</script>
+	</form>
+}.MINI_FOOT_INCLUDE);
+
+use constant POST_EDIT_TEMPLATE => compile_template (MINI_HEAD_INCLUDE.q{
+<loop $loop>
+	<h1 style="text-align:center;font-size:1em">Now Editing Post No.<var $num></h1>
+
+	<if $admin><div align="center"><em><const S_NOTAGS></em></div></if>
+
+	<div class="postarea">
+	<form id="postform" action="<var $self>" method="post" enctype="multipart/form-data">
+
+	<input type="hidden" name="num" value="<var $num>" />
+	<input type="hidden" name="password" value="<var $password>" />
+	<input type="hidden" name="task" value="editpost" />
+	<if $admin><input type="hidden" name="admin" value="<var $admin>" />
+	<input type="hidden" name="no_captcha" value="1" />
+	<input type="hidden" name="no_format" value="1" /></if>
+	<if $parent><input type="hidden" name="parent" value="<var $parent>" /></if>
+	<if FORCED_ANON><input type="hidden" name="name" /></if>
+	<if SPAM_TRAP><div class="trap"><const S_SPAMTRAP><input type="text" name="name" size="28" /><input type="text" name="link" size="28" /></div></if>
+
+	<table><tbody>
+	<if !FORCED_ANON><tr><td class="postblock"><const S_NAME></td><td><input type="text" name="field1" value="<var $name>" size="28" /><if $trip> # <var $trip><br />(Enter new tripcode above to change.)<br />[<label><input type="checkbox" value="1" name="killtrip" /> Remove Tripcode?</label>]</if></td></tr></if>
+	<tr><td class="postblock"><const S_EMAIL></td><td><input type="text" name="email" size="28" value="<var $email>" /></td></tr>
+	<tr><td class="postblock"><const S_SUBJECT></td><td><input type="text" name="subject" size="35" value="<var $subject>" />
+	<input type="submit" value="<const S_SUBMIT>" /></td></tr>
+	<tr><td class="postblock"><const S_COMMENT></td><td>
+	<textarea name="comment" cols="48" rows="4"><if $admin><var clean_string($comment)></if><if !$admin><var tag_killa($comment)></if></textarea></td></tr>
+
+	<if ALLOW_IMAGE_REPLIES || !$parent>
+		<tr><td class="postblock"><const S_NEWFILE></td><td><input type="file" name="file" size="35" />
+		<br />(Keep this field blank to leave the file unchanged.)
+		</td></tr>
+	</if>
+
+	<if ENABLE_CAPTCHA>
+		<tr><td class="postblock"><const S_CAPTCHA></td><td><input type="text" name="captcha" size="10" />
+		<img alt="" src="<var expand_filename(CAPTCHA_SCRIPT)>?key=<var get_captcha_key($parent)>&amp;dummy=<var $num>" />
+		</td></tr>
+	</if>
+	</tbody></table></form></div>
+	<script type="text/javascript">set_inputs("postform")</script>
+</loop>
+}.MINI_FOOT_INCLUDE);
 
 
 use constant ERROR_TEMPLATE => compile_template(NORMAL_HEAD_INCLUDE.q{

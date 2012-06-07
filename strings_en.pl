@@ -13,7 +13,7 @@ use constant S_NOFILE => 'No File';									# Describes file/no file checkbox
 use constant S_CAPTCHA => 'Verification';							# Describes captcha field
 use constant S_PARENT => 'Parent';									# Describes parent field on admin post page
 use constant S_DELPASS => 'Password';								# Describes password field
-use constant S_DELEXPL => '(for post and file deletion)';			# Prints explanation for password box (to the right)
+use constant S_DELEXPL => '(for post and file deletion and editing)';			# Prints explanation for password box (to the right)
 use constant S_SPAMTRAP => 'Leave these fields empty (spam trap): ';
 
 use constant S_THUMB => 'Thumbnail displayed, click image for full size.';	# Prints instructions for viewing real source
@@ -135,6 +135,12 @@ use constant S_SQLCONF => 'SQL connection failure';							# Database connection 
 use constant S_SQLFAIL => 'Critical SQL problem!';							# SQL Failure
 
 use constant S_REDIR => 'If the redirect didn\'t work, please choose one of the following mirrors:';    # Redir message for html in REDIR_DIR
+
+use constant S_BADEDITPASS => "Error: Incorrect password for editing.";					# Returned if a user inputs the wrong password for editing
+use constant S_NOPASS => "Error: No password was specified for this post.<br />It cannot be edited.";	# Returned if a bad password was given by a user when attempting to edit a post
+# Prompt for editing/deletion password for usual circumstances.
+use constant S_PROMPTPASSWORD => "Please enter the deletion/editing password. ";
+
 
 1;
 
