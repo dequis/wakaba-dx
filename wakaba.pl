@@ -1052,7 +1052,7 @@ sub add_proxy_entry($$$$$)
 	unless ($ip =~ /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/ && $1 <= 255 && $2 <= 255 && $3 <= 255 && $4 <= 255) {
 		make_error(S_BADIP);
 	}
-	if ($type = 'white') { 
+	if ($type == 'white') {
 		$timestamp = $timestamp - PROXY_WHITE_AGE + time(); 
 	}
 	else
@@ -1309,7 +1309,7 @@ sub process_file($$$)
 		($md5)=$md5sum=~/^([0-9a-f]+)/ unless($?);
 	}
 
-	if($md5) # if we managed to generate an md5 checksum, check for duplicate files
+	if($md5 && (!defined(&DUPE_CHECK) || &DUPE_CHECK)) # if we managed to generate an md5 checksum, check for duplicate files
 	{
 		my $sth=$dbh->prepare("SELECT * FROM ".SQL_TABLE." WHERE md5=?;") or make_error(S_SQLFAIL);
 		$sth->execute($md5) or make_error(S_SQLFAIL);
