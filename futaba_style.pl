@@ -490,6 +490,7 @@ use constant POST_PANEL_TEMPLATE => compile_template(MANAGER_HEAD_INCLUDE.q{
 	<td><var dec_to_dot($ip)>
 		[<a href="<var $self>?admin=<var $admin>&amp;task=deleteall&amp;ip=<var $ip>"><const S_MPDELETEALL></a>]
 		[<a href="<var $self>?admin=<var $admin>&amp;task=addip&amp;type=ipban&amp;ip=<var $ip>" onclick="return do_ban(this)"><const S_MPBAN></a>]
+		[<a href="<var $self>?admin=<var $admin>&amp;task=editpostwindow&amp;num=<var $num>&amp;admineditmode=1" target="_blank" onclick="popUpPost('<var $self>?admin=<var $admin>&amp;task=editpostwindow&amp;admineditmode=1&amp;num=<var $num>'); return false">Edit</a>]
 	</td>
 
 	</tr>

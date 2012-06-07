@@ -758,9 +758,12 @@ sub edit_shit($$$$$$$$$$$$$$) # ADDED subroutine for post editing
 	# check that the request came in as a POST, or from the command line
 	make_error(S_UNJUST) if($ENV{REQUEST_METHOD} and $ENV{REQUEST_METHOD} ne "POST");
 
+	my $new_password = $$row{password};
+
 	if($admin) # check admin password - allow both encrypted and non-encrypted
 	{
 		check_password_editing_mode($admin,ADMIN_PASS);
+		$new_password = '';
 	}
 	else
 	{
@@ -888,8 +891,8 @@ sub edit_shit($$$$$$$$$$$$$$) # ADDED subroutine for post editing
 	$select->finish();
 
 	# finally, write to the database
-	my $sth=$dbh->prepare("UPDATE ".SQL_TABLE." SET name=?,trip=?,subject=?,email=?,comment=? WHERE num=?;") or make_error_small(S_SQLFAIL);
-	$sth->execute($name,($trip || $killtrip) ? $trip : $$row{trip},$subject,$email,$comment,$num) or make_error_small(S_SQLFAIL);
+	my $sth=$dbh->prepare("UPDATE ".SQL_TABLE." SET name=?,trip=?,subject=?,email=?,comment=?,password=? WHERE num=?;") or make_error_small(S_SQLFAIL);
+	$sth->execute($name,($trip || $killtrip) ? $trip : $$row{trip},$subject,$email,$comment,$new_password,$num) or make_error_small(S_SQLFAIL);
 
 	# remove old threads from the database
 	trim_database();
