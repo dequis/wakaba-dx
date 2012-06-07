@@ -1,0 +1,30 @@
+wakaba+dx
+
+This is wakaba 3.0.9 with the following features backported from
+wakaba+desuchan:
+
+- User and admin post editing
+- Inline post deletion
+- DUPE_CHECK config entry
+- noko (seriously, wakaba?)
+
+No multiple board support, no staff account system, no fancy admin interface.
+Should be a drop-in replacement, no db changes required. Changed files:
+
+- wakaba.pl
+- strings_en.pl
+- futaba_style.pl
+- wakaba3.js
+
+Editing posts does *not* mark them as edited in a way that is visible to
+everyone else (and no timestamp / ip is saved), as this would require database
+modifications.
+
+DUPE_CHECK: I tried to avoid changing the config files, so add this line to your
+config.pl to disable duplicate file checking:
+
+    use constant DUPE_CHECK => 0;
+
+All the credit for these wakaba modifications goes to K_Anonymous (k-anon on
+github), I just backported them because someone needed just a wakaba with post
+editing.
