@@ -170,6 +170,9 @@
 #	png => '.',
 #);
 
+# use constant ENABLE_ABBREVIATED_THREAD_PAGES => 1;	# Want to enable "Last xx Posts?" Then set this to 1.
+# use constant POSTS_IN_ABBREVIATED_THREAD_PAGES => 50;	# Number of posts to show in abbreviated reply views.
+
 # no encoding; # Uncomment this if you uncommented the "use encoding" at the top of the file
 
 1;

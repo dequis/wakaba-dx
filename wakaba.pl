@@ -379,6 +379,7 @@ sub build_thread_cache($)
 	my ($thread)=@_;
 	my ($sth,$row,@thread);
 	my ($filename,$tmpname);
+	my ($op,$posts_to_trim,$abbreviated_filename);
 
 	$sth=$dbh->prepare("SELECT * FROM ".SQL_TABLE." WHERE num=? OR parent=? ORDER BY num ASC;") or make_error(S_SQLFAIL);
 	$sth->execute($thread,$thread) or make_error(S_SQLFAIL);
@@ -397,6 +398,51 @@ sub build_thread_cache($)
 		dummy=>$thread[$#thread]{num},
 		threads=>[{posts=>\@thread}])
 	);
+
+	# Determine how many posts need to be cut.
+	$posts_to_trim = scalar(@thread) - POSTS_IN_ABBREVIATED_THREAD_PAGES;
+
+	# Filename for Last xx Posts Page.
+	$abbreviated_filename = RES_DIR.$thread."_abbr".PAGE_EXT;
+
+	if (ENABLE_ABBREVIATED_THREAD_PAGES && $posts_to_trim > 1)
+	{
+		for (my $i = 0; $i < $posts_to_trim; ++$i)
+		{
+			if ($i == 0)
+			{
+				$op = shift(@thread);
+			}
+			else
+			{
+				shift(@thread);
+			}
+		}
+
+		unshift(@thread, $op);
+
+		print_page($abbreviated_filename,PAGE_TEMPLATE->(
+			threads=>[{posts=>\@thread}],
+			thread=>$thread,
+			omit=>$posts_to_trim-1, # Displayed number of omitted posts does not include OP.
+			postform=>(ALLOW_TEXT_REPLIES or ALLOW_IMAGE_REPLIES),
+			image_inp=>ALLOW_IMAGE_REPLIES,
+			textonly_inp=>0,
+			dummy=>$thread[$#thread]{num},
+		));
+	}
+	else
+	{
+		unlink $abbreviated_filename if ( -e $abbreviated_filename );
+	}
+}
+
+sub delete_thread_cache($)
+{
+	my ($parent) = @_;
+
+	unlink RES_DIR.$parent.PAGE_EXT;
+	unlink RES_DIR.$parent."_abbr".PAGE_EXT;
 }
 
 sub print_page($$)
@@ -649,12 +695,25 @@ sub post_stuff($$$$$$$$$$$$$$)
 	make_cookies(name=>$c_name,email=>$c_email,password=>$c_password,
 	-charset=>CHARSET,-autopath=>COOKIE_PATH); # yum!
 
-	# forward back to the main page
-	make_http_forward(HTML_SELF,ALTERNATE_REDIRECT) unless $noko;
+	unless ($noko)
+	{
+		# forward back to the main page
+		make_http_forward(HTML_SELF,ALTERNATE_REDIRECT)
+	}
+	else
+	{
+		# ...unless we have "noko" (a la 4chan)--then forward to thread
+		# ($parent contains current post number if a new thread was posted)
+		unless (-e RES_DIR.$parent."_abbr".PAGE_EXT)
+		{
+			make_http_forward(RES_DIR.$parent.PAGE_EXT,ALTERNATE_REDIRECT);
 
-	# ...unless we have "noko" (a la 4chan)--then forward to thread
-	# ($parent contains current post number if a new thread was posted)
-	make_http_forward(RES_DIR.$parent.PAGE_EXT,ALTERNATE_REDIRECT);
+		}
+		else
+		{
+			make_http_forward(RES_DIR.$parent."_abbr".PAGE_EXT,ALTERNATE_REDIRECT);
+		}
+	}
 
 }
 
@@ -1528,7 +1587,7 @@ sub delete_post($$$$)
 					close RESIN;
 					close RESOUT;
 				}
-				unlink RES_DIR.$$row{num}.PAGE_EXT;
+				delete_thread_cache($$row{num});
 			}
 			else # removing parent image
 			{
@@ -1946,12 +2005,12 @@ sub expand_image_filename($)
 	return $self_path.REDIR_DIR.clean_path($1).'.html';
 }
 
-sub get_reply_link($$)
+sub get_reply_link($$;$$)
 {
-	my ($reply,$parent)=@_;
+	my ($reply,$parent,$abbreviated,$force_http)=@_;
 
-	return expand_filename(RES_DIR.$parent.PAGE_EXT).'#'.$reply if($parent);
-	return expand_filename(RES_DIR.$reply.PAGE_EXT);
+	return expand_filename(RES_DIR.$parent.(($abbreviated) ? "_abbr" : "").PAGE_EXT,$force_http).'#'.$reply if($parent);
+	return expand_filename(RES_DIR.$reply.(($abbreviated) ? "_abbr" : "").PAGE_EXT,$force_http);
 }
 
 sub get_page_count(;$)

@@ -122,6 +122,9 @@ BEGIN {
 	eval "use constant FILETYPES => ()" unless(defined &FILETYPES);
 
 	eval "use constant WAKABA_VERSION => '3.0.9'" unless(defined &WAKABA_VERSION);
+
+	eval "use constant ENABLE_ABBREVIATED_THREAD_PAGES => 0" unless defined (&ENABLE_ABBREVIATED_THREAD_PAGES);
+	eval "use constant POSTS_IN_ABBREVIATED_THREAD_PAGES => 50" unless defined (&POSTS_IN_ABBREVIATED_THREAD_PAGES);
 }
 
 1;

@@ -139,7 +139,12 @@ use constant PAGE_TEMPLATE => compile_template(NORMAL_HEAD_INCLUDE.q{
 
 <if $thread>
 	[<a href="<var expand_filename(HTML_SELF)>"><const S_RETURN></a>]
-	<div class="theader"><const S_POSTING></div>
+	<if !$omit>
+		<div class="theader"><const S_POSTING></div>
+	</if>
+	<if $omit>
+		<div class="theader">Posting Mode: Reply (Abbreviated Thread View)</div>
+	</if>
 </if>
 
 <if $postform>
@@ -222,17 +227,23 @@ use constant PAGE_TEMPLATE => compile_template(NORMAL_HEAD_INCLUDE.q{
 				<span id="delpostcontent<var $num>" style="display:inline"></span>
 			</span>&nbsp;
 			[<a href="<var $self>?task=edit&amp;num=<var $num>" target="_blank" onclick="popUpPost('<var $self>?task=edit&amp;num=<var $num>'); return false">Edit</a>]&nbsp;
-			<if !$thread>[<a href="<var get_reply_link($num,0)>"><const S_REPLY></a>]</if>
+			<if !$thread>[<a href="<var get_reply_link($num,0)>"><const S_REPLY></a><if ENABLE_ABBREVIATED_THREAD_PAGES && $omit && $omit + IMAGES_PER_PAGE \> POSTS_IN_ABBREVIATED_THREAD_PAGES>/<a href="<var get_reply_link($num,0,1)>">Last <const POSTS_IN_ABBREVIATED_THREAD_PAGES></a></if>]</if>
 
 			<blockquote>
 			<var $comment>
-			<if $abbrev><div class="abbrev"><var sprintf(S_ABBRTEXT,get_reply_link($num,$parent))></div></if>
+			<if $abbrev><div class="abbrev"><var sprintf(S_ABBRTEXT,(ENABLE_ABBREVIATED_THREAD_PAGES && $omit && $omit + IMAGES_PER_PAGE \> POSTS_IN_ABBREVIATED_THREAD_PAGES) ? get_reply_link($num,$parent,1) : get_reply_link($num,$parent))></div></if>
 			</blockquote>
 
-			<if $omit>
+			<if !$thread && $omit>
 				<span class="omittedposts">
 				<if $omitimages><var sprintf S_ABBRIMG,$omit,$omitimages></if>
 				<if !$omitimages><var sprintf S_ABBR,$omit></if>
+				</span>
+			</if>
+			<if $thread && $omit>
+				<span class="omittedposts">
+					This page shows only the latest <const POSTS_IN_ABBREVIATED_THREAD_PAGES> replies to this thread.
+					For the other <var $omit>, refer to <a href="<var get_reply_link($thread,0)>">the full thread page</a>.
 				</span>
 			</if>
 		</if>
@@ -279,7 +290,7 @@ use constant PAGE_TEMPLATE => compile_template(NORMAL_HEAD_INCLUDE.q{
 
 			<blockquote>
 			<var $comment>
-			<if $abbrev><div class="abbrev"><var sprintf(S_ABBRTEXT,get_reply_link($num,$parent))></div></if>
+			<if $abbrev><div class="abbrev"><var sprintf(S_ABBRTEXT,(ENABLE_ABBREVIATED_THREAD_PAGES && $omit && $omit + IMAGES_PER_PAGE \> POSTS_IN_ABBREVIATED_THREAD_PAGES) ? get_reply_link($num,$parent,1) : get_reply_link($num,$parent))></div></if>
 			</blockquote>
 
 			</td></tr></tbody></table>
