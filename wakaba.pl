@@ -2005,12 +2005,12 @@ sub expand_image_filename($)
 	return $self_path.REDIR_DIR.clean_path($1).'.html';
 }
 
-sub get_reply_link($$;$$)
+sub get_reply_link($$;$)
 {
-	my ($reply,$parent,$abbreviated,$force_http)=@_;
+	my ($reply,$parent,$abbreviated)=@_;
 
-	return expand_filename(RES_DIR.$parent.(($abbreviated) ? "_abbr" : "").PAGE_EXT,$force_http).'#'.$reply if($parent);
-	return expand_filename(RES_DIR.$reply.(($abbreviated) ? "_abbr" : "").PAGE_EXT,$force_http);
+	return expand_filename(RES_DIR.$parent.(($abbreviated) ? "_abbr" : "").PAGE_EXT).'#'.$reply if($parent);
+	return expand_filename(RES_DIR.$reply.(($abbreviated) ? "_abbr" : "").PAGE_EXT);
 }
 
 sub get_page_count(;$)
